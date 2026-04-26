@@ -1,36 +1,41 @@
 package basketball;
 
 public class Defender extends Player {
-    private double highWeight = 80.;
-    private double mediumWeight = 15.;
-    private double lowWeight = 5.;
+    private double highWeight;
+    private double mediumWeight;
+    private double lowWeight;
 
-    public Defender(String name, int row, int col) {
-        super(name, row, col);
+    public Defender() {
+        this(80, 15, 5);
     }
 
-    public Defender(String name, int row, int col,
-                    double highWeight, double mediumWeight, double lowWeight) {
-        super(name, row, col);
-        this.highWeight = highWeight;
-        this.mediumWeight = mediumWeight;
-        this.lowWeight = lowWeight;
-    }
-
-    public double getHighWeight() { return highWeight; }
-    public void setHighWeight(double v) { this.highWeight = v; }
-    public double getMediumWeight() { return mediumWeight; }
-    public void setMediumWeight(double v) { this.mediumWeight = v; }
-    public double getLowWeight() { return lowWeight; }
-    public void setLowWeight(double v) { this.lowWeight = v; }
-
-    @Override
-    public void specialAbility() {
-        // Defenders are computer-controlled; no user-invoked ability.
+    public Defender(double high, double medium, double low) {
+        this.highWeight = high;
+        this.mediumWeight = medium;
+        this.lowWeight = low;
+        this.passSuccess = 0.50;
+        this.layupSuccess = 0.50;
+        this.midRangeSuccess = 0.30;
+        this.longRangeSuccess = 0.10;
     }
 
     @Override
-    public boolean isSpecialAbilityAvailable() {
+    public void specialAbility(Game game) {
+        return;
+    }
+
+    @Override
+    public boolean isSpecialAbilityAvailable(Game game) {
         return false;
+    }
+
+    public double getHighWeight() {
+        return highWeight;
+    }
+    public double getMediumWeight() {
+        return mediumWeight;
+    }
+    public double getLowWeight() {
+        return lowWeight;
     }
 }

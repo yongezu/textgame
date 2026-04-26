@@ -1,54 +1,46 @@
 package basketball;
 
 public class Guard extends Player {
-    private double slashSuccess = 0.9;
+    private double slashSuccess = 0.30;
 
-    public Guard(String name, int row, int col) {
-        super(name, row, col);
-        setPassSuccess(0.90);
-        setLayupSuccess(0.85);
-        setMidRangeSuccess(0.65);
-        setLongRangeSuccess(0.45);
-    }
-
-    public double getSlashSuccess() {
-        return slashSuccess;
-    }
-
-    public void setSlashSuccess(double v) {
-        this.slashSuccess = v;
+    public Guard() {
+        this.passSuccess = 0.85; // Boosted
+        this.layupSuccess = 1.0;
+        this.midRangeSuccess = 0.50;
+        this.longRangeSuccess = 0.40;
     }
 
     @Override
-    public boolean isSpecialAbilityAvailable() {
-        if (specialUsed || game == null) return false;
-        return game.getBallHolder() == this;
+    public void specialAbility(Game game) {
+        if (!isSpecialAbilityAvailable(game)) {
+            setLastSpecialResult(UNAVAILABLE);
+            return;
+        }
+        setSpecialUsed(true);
+        if (getRandomDouble() < slashSuccess) {
+            Player defender = game.getMatchedDefender(this);
+            int targetRow = defender.getRow() + 1;
+            int targetCol = defender.getCol();
+
+            if (game.inBounds(targetRow, targetCol) && !game.isOccupied(targetRow, targetCol)) {
+                setPosition(targetRow, targetCol);
+                setLastSpecialResult(SUCCESS);
+            } else {
+                setLastSpecialResult(FAIL);
+            }
+        } else {
+            setLastSpecialResult(FAIL);
+        }
     }
 
     @Override
-    public void specialAbility() {
-        if (!isSpecialAbilityAvailable()) {
-            lastSpecialResult = SpecialResult.UNAVAILABLE;
-            return;
+    public boolean isSpecialAbilityAvailable(Game game) {
+        if (isSpecialUsed()) {
+            return false;
         }
-        specialUsed = true;
-        Player matched = game.getMatchedDefender(this);
-        if (matched == null) {
-            lastSpecialResult = SpecialResult.FAIL;
-            return;
+        if (game.getBallHolder() != this) {
+            return false;
         }
-        boolean ok = game.getRng().nextDouble() < slashSuccess;
-        if (!ok) {
-            lastSpecialResult = SpecialResult.FAIL;
-            return;
-        }
-        int nr = matched.getRow() + 1;
-        int nc = matched.getCol();
-        if (!game.inBounds(nr, nc) || game.isOccupied(nr, nc)) {
-            lastSpecialResult = SpecialResult.FAIL;
-            return;
-        }
-        setPosition(nr, nc);
-        lastSpecialResult = SpecialResult.SUCCESS;
+        return true;
     }
 }

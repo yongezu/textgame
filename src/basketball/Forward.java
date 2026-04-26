@@ -1,46 +1,50 @@
 package basketball;
 
 public class Forward extends Player {
-    private double cutSuccess = 0.9;
+    private double cutSuccess = 0.30;
 
-    public Forward(String name, int row, int col) {
-        super(name, row, col);
-    }
-
-    public double getCutSuccess() {
-        return cutSuccess;
-    }
-
-    public void setCutSuccess(double v) {
-        this.cutSuccess = v;
+    public Forward() {
+        this.passSuccess = 0.70;
+        this.layupSuccess = 0.85;
+        this.midRangeSuccess = 0.55;
+        this.longRangeSuccess = 0.30;
     }
 
     @Override
-    public boolean isSpecialAbilityAvailable() {
-        if (specialUsed || game == null) return false;
-        if (game.getBallHolder() == this) return false;
-        return getRow() >= 4;
-    }
-
-    @Override
-    public void specialAbility() {
-        if (!isSpecialAbilityAvailable()) {
-            lastSpecialResult = SpecialResult.UNAVAILABLE;
+    public void specialAbility(Game game) {
+        if (!isSpecialAbilityAvailable(game)) {
+            setLastSpecialResult(UNAVAILABLE);
             return;
         }
-        specialUsed = true;
-        boolean ok = game.getRng().nextDouble() < cutSuccess;
+        setSpecialUsed(true);
+        boolean ok = this.getRandomDouble() < cutSuccess;
         if (!ok) {
-            lastSpecialResult = SpecialResult.FAIL;
+            setLastSpecialResult(FAIL);
             return;
         }
+        // directly move to (6, 4)
         int nr = 6;
         int nc = 4;
-        if (!game.inBounds(nr, nc) || game.isOccupied(nr, nc)) {
-            lastSpecialResult = SpecialResult.FAIL;
+        if (game.isOccupied(nr, nc)) {
+            setLastSpecialResult(FAIL);
             return;
         }
         setPosition(nr, nc);
-        lastSpecialResult = SpecialResult.SUCCESS;
+        setLastSpecialResult(SUCCESS);
+    }
+
+    @Override
+    public boolean isSpecialAbilityAvailable(Game game) {
+        if (isSpecialUsed()) {
+            return false;
+        }
+        if (game.getBallHolder() == this) {
+            return false;
+        }
+        // if the row < 4, return false
+        if (getRow() < 4) {
+            return false;
+        }
+        return true;
     }
 }

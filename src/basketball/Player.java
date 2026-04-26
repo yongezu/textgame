@@ -1,65 +1,103 @@
 package basketball;
 
+import java.util.Random;
+
 public abstract class Player {
-    public enum SpecialResult { NONE, UNAVAILABLE, SUCCESS, FAIL }
 
-    private final String name;
-    private int row;
-    private int col;
-    private double passSuccess = 0.8;
-    private double layupSuccess = 0.75;
-    private double midRangeSuccess = 0.5;
-    private double longRangeSuccess = 0.3;
+    // Results of the special ability
+    public static int NONE = 0;
+    public static int UNAVAILABLE = 1;
+    public static int SUCCESS = 2;
+    public static int FAIL = 3;
 
-    protected boolean specialUsed = false;
-    protected SpecialResult lastSpecialResult = SpecialResult.NONE;
-    protected Game game;
+    // characteristics of the player
+    private int row, col;
+    protected double passSuccess;
+    protected double layupSuccess;
+    protected double midRangeSuccess;
+    protected double longRangeSuccess;
+    private boolean specialUsed;
+    private int lastSpecialResult = NONE;
+    private Random random;
+    private int playerNumber;
 
-    public Player(String name, int row, int col) {
-        this.name = name;
-        this.row = row;
-        this.col = col;
+    public Player() {
+        this(0);
+    }
+
+    public Player(int playerNumber) {
+        this.random = new Random();
+        this.playerNumber = playerNumber;
+    }
+
+    public int getPlayerNumber() {
+        return playerNumber;
+    }
+    public void setPlayerNumber(int playerNumber) {
+        this.playerNumber = playerNumber;
     }
 
     public String archetype() {
         return getClass().getSimpleName();
     }
 
-    public abstract void specialAbility();
-    public abstract boolean isSpecialAbilityAvailable();
-
-    public void onGameReset() {
-        specialUsed = false;
-        lastSpecialResult = SpecialResult.NONE;
+    public void setSpecialUsed(boolean specialUsed) {
+        this.specialUsed = specialUsed;
     }
-
     public boolean isSpecialUsed() {
         return specialUsed;
     }
+    public void setLastSpecialResult(int lastSpecialResult) {
+        this.lastSpecialResult = lastSpecialResult;
+    }
 
-    public SpecialResult getLastSpecialResult() {
+    public void setPosition(int row, int col) {
+        this.row = row;
+        this.col = col;
+    }
+
+    public int getRow() {
+        return row;
+    }
+    public int getCol() {
+        return col;
+    }
+
+    public double getPassSuccess() {
+        return passSuccess;
+    }
+    public double getLayupSuccess() {
+        return layupSuccess;
+    }
+    public double getMidRangeSuccess() {
+        return midRangeSuccess;
+    }
+    public double getLongRangeSuccess() {
+        return longRangeSuccess;
+    }
+
+    public void reset() {
+        this.specialUsed = false;
+        this.lastSpecialResult = NONE;
+    }
+
+    public int getLastSpecialResult() {
         return lastSpecialResult;
     }
 
     public void clearLastSpecialResult() {
-        lastSpecialResult = SpecialResult.NONE;
+        this.lastSpecialResult = NONE;
     }
 
-    public void setGame(Game g) {
-        this.game = g;
+    // use this random generator
+    public double getRandomDouble() {
+        return this.random.nextDouble();
     }
 
-    public String getName() { return name; }
-    public int getRow() { return row; }
-    public int getCol() { return col; }
-    public void setPosition(int row, int col) { this.row = row; this.col = col; }
-
-    public double getPassSuccess() { return passSuccess; }
-    public void setPassSuccess(double v) { this.passSuccess = v; }
-    public double getLayupSuccess() { return layupSuccess; }
-    public void setLayupSuccess(double v) { this.layupSuccess = v; }
-    public double getMidRangeSuccess() { return midRangeSuccess; }
-    public void setMidRangeSuccess(double v) { this.midRangeSuccess = v; }
-    public double getLongRangeSuccess() { return longRangeSuccess; }
-    public void setLongRangeSuccess(double v) { this.longRangeSuccess = v; }
+    public void specialAbility(Game game) {
+        return;
+    }
+    public boolean isSpecialAbilityAvailable(Game game) {
+        return false;
+    }
 }

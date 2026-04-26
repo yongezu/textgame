@@ -1,114 +1,76 @@
 package basketball;
 
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Random;
+
 public class Game {
-    public static final int GRID_SIZE = 7;
-    public static final int BASKET_ROW = GRID_SIZE;
+    public static int OFFENSE = 0;
+    public static int DEFENSE = 1;
 
-    public enum Possession { OFFENSE, DEFENSE }
-    public enum ShotResult { MADE, MADE_THREE, MISSED, REBOUNDED, NO_POSSESSION }
+    // Shot results
+    public static int MADE = 2;
+    public static int MADE_THREE = 3;
+    public static int MISSED = 4;
+    public static int REBOUNDED = 5;
+    public static int NO_POSSESSION = 6;
 
-    private final Team offense;
-    private final Team defense;
-    private int focusedIndex = 0;
-    private int ballHolderIndex = 0;
-    private Possession possession = Possession.OFFENSE;
-    private int offenseScore = 0;
-    private int defenseScore = 0;
-    private int gameCounter = 0;
-    private final java.util.Random rng = new java.util.Random();
+    public static int GRID_SIZE = 7;
+    public static int BASKET_ROW = 6;
+    public static int BASKET_COL = 4;
+
+    private Team offense, defense;
+    private int focusedIndex;
+    private int ballHolderIndex;
+    private int possession;
+    private int offenseScore, defenseScore;
+    private int gameCounter;
+    private Stage stage;
+    private Random rng = new Random();
 
     public Game(Team offense, Team defense) {
         this.offense = offense;
         this.defense = defense;
-        for (Player p : offense.getPlayers()) p.setGame(this);
-        for (Player p : defense.getPlayers()) p.setGame(this);
+        this.focusedIndex = 0;
+        this.ballHolderIndex = 0;
+        this.possession = OFFENSE;
     }
 
-    public java.util.Random getRng() {
-        return rng;
-    }
-
-    public boolean inBounds(int row, int col) {
-        return row >= 0 && row < GRID_SIZE && col >= 0 && col < GRID_SIZE;
-    }
-
-    public Player getMatchedDefender(Player offensePlayer) {
-        for (int i = 0; i < Team.SIZE; i++) {
-            if (offense.getPlayer(i) == offensePlayer) return defense.getPlayer(i);
+    public boolean move(char dir) {
+        // direction is 'w', 'a', 's', 'd', corresponding to up, left, down, right
+        int dr = 0, dc = 0;
+        char c = Character.toLowerCase(dir);
+        if (c == 'w') {
+            dr = -1;
+        } else if (c == 'a') {
+            dc = -1;
+        } else if (c == 's') {
+            dr = 1;
+        } else if (c == 'd') {
+            dc = 1;
+        } else {
+            return false;
         }
-        return null;
-    }
-
-    public Player.SpecialResult invokeSpecial() {
-        Player p = getFocusedPlayer();
-        p.clearLastSpecialResult();
-        p.specialAbility();
-        return p.getLastSpecialResult();
-    }
-
-    public Possession getPossession() {
-        return possession;
-    }
-
-    public int getOffenseScore() {
-        return offenseScore;
-    }
-
-    public int getDefenseScore() {
-        return defenseScore;
-    }
-
-    public int getGameCounter() {
-        return gameCounter;
-    }
-
-    public Team getOffense() {
-        return offense;
-    }
-
-    public Team getDefense() {
-        return defense;
-    }
-
-    public int getFocusedIndex() {
-        return focusedIndex;
-    }
-
-    public Player getFocusedPlayer() {
-        return offense.getPlayer(focusedIndex);
-    }
-
-    public void setFocusedIndex(int index) {
-        if (index < 0 || index >= Team.SIZE) {
-            throw new IllegalArgumentException("Invalid focus index: " + index);
-        }
-        this.focusedIndex = index;
-    }
-
-    public int getBallHolderIndex() {
-        return ballHolderIndex;
-    }
-
-    public Player getBallHolder() {
-        return offense.getPlayer(ballHolderIndex);
-    }
-
-    public void setBallHolderIndex(int index) {
-        if (index < 0 || index >= Team.SIZE) {
-            throw new IllegalArgumentException("Invalid ball holder index: " + index);
-        }
-        this.ballHolderIndex = index;
+        Player focusedPlayer = getFocusedPlayer();
+        int nr = focusedPlayer.getRow() + dr;
+        int nc = focusedPlayer.getCol() + dc;
+        if (!inBounds(nr, nc)) return false;
+        if (isOccupied(nr, nc)) return false;
+        focusedPlayer.setPosition(nr, nc);
+        updateDefenders();
+        return true;
     }
 
     public boolean pass(int receiverIndex) {
-        if (possession != Possession.OFFENSE) return false;
+        if (possession != OFFENSE) return false;
         if (receiverIndex < 0 || receiverIndex >= Team.SIZE) return false;
         if (receiverIndex == ballHolderIndex) return false;
 
         Player passer = offense.getPlayer(ballHolderIndex);
         boolean success = rng.nextDouble() < passer.getPassSuccess();
         if (success) {
-            ballHolderIndex = receiverIndex;
+            this.ballHolderIndex = receiverIndex;
+            this.focusedIndex = receiverIndex;
         } else {
             defenseScore++;
             resetPlay();
@@ -116,164 +78,230 @@ public class Game {
         return success;
     }
 
-    private void resetPlay() {
-        Game init = createInitial();
-        for (int i = 0; i < Team.SIZE; i++) {
-            Player src = init.offense.getPlayer(i);
-            Player o = offense.getPlayer(i);
-            o.setPosition(src.getRow(), src.getCol());
-            Player sdef = init.defense.getPlayer(i);
-            defense.getPlayer(i).setPosition(sdef.getRow(), sdef.getCol());
-        }
-        focusedIndex = 0;
-        ballHolderIndex = 0;
-        possession = Possession.OFFENSE;
-        gameCounter++;
+    public int getPlayerDistance(Player p1, Player p2) {
+        return Math.abs(p1.getRow() - p2.getRow()) + Math.abs(p1.getCol() - p2.getCol());
     }
 
-    public ShotResult shoot() {
-        if (possession != Possession.OFFENSE) return ShotResult.NO_POSSESSION;
-        Player shooter = offense.getPlayer(ballHolderIndex);
-        int distance = BASKET_ROW - shooter.getRow();
-        double prob;
-        boolean longRange = false;
+    public int getBasketDistance(Player p) {
+        return Math.abs(p.getRow() - BASKET_ROW) + Math.abs(p.getCol() - BASKET_COL);
+    }
+
+    public double getShootingSuccess() {
+        Player p = getBallHolder();
+        int distance = BASKET_ROW - p.getRow();
+        double prob = 1.0;
         if (distance < 2) {
-            prob = shooter.getLayupSuccess();
+            prob = p.getLayupSuccess();
         } else if (distance <= 4) {
-            prob = shooter.getMidRangeSuccess();
+            prob = p.getMidRangeSuccess();
         } else {
-            prob = shooter.getLongRangeSuccess();
-            longRange = true;
+            prob = p.getLongRangeSuccess();
         }
-        Player matchedDefender = defense.getPlayer(ballHolderIndex);
-        int dr = matchedDefender.getRow() - shooter.getRow();
-        int dc = matchedDefender.getCol() - shooter.getCol();
-        int defDist = Math.max(Math.abs(dr), Math.abs(dc));
-        double openness;
-        if (defDist <= 1) openness = 0.5;
-        else if (defDist == 2) openness = 0.75;
-        else openness = 1.0;
-        prob *= openness;
+        Player matchedDefender = getMatchedDefender(p);
+        int dr = matchedDefender.getRow() - p.getRow();
+        boolean isBlocked = matchedDefender.getCol() == p.getCol();
+        if (dr == 1 && isBlocked) {
+            prob *= 0.5;
+        } else if (dr == 2 && isBlocked) {
+            prob *= 0.75;
+        } else {
+            prob *= 1.0;
+        }
+        return prob;
+    }
+
+    public int shoot() {
+        if (possession != OFFENSE) return NO_POSSESSION;
+        Player shooter = getBallHolder();
+        double prob = getShootingSuccess();
+
         boolean made = rng.nextDouble() < prob;
         if (made) {
-            offenseScore += longRange ? 3 : 2;
+            int distance = BASKET_ROW - shooter.getRow();
+            if(distance >= 5) {
+                offenseScore += 3;
+            } else {
+                offenseScore += 2;
+            }
             defenseScore += 1;
             resetPlay();
-            return longRange ? ShotResult.MADE_THREE : ShotResult.MADE;
+            if(distance >= 5) {
+                return MADE_THREE;
+            } else {
+                return MADE;
+            }
         }
-        boolean rebounded = false;
-        for (Player p : offense.getPlayers()) {
+        // missed: see if Center can rebound
+        for (int i = 0; i < Team.SIZE; i++) {
+            Player p = offense.getPlayer(i);
             if (p instanceof Center) {
                 Center c = (Center) p;
-                if (c.tryRebound()) {
-                    rebounded = true;
-                    ballHolderIndex = indexOfOffense(c);
-                    focusedIndex = ballHolderIndex;
-                    break;
+                if (c.tryRebound(this)) {
+                    ballHolderIndex = i;
+                    focusedIndex = i;
+                    return REBOUNDED;
                 }
             }
         }
-        if (rebounded) return ShotResult.REBOUNDED;
         defenseScore += 1;
         resetPlay();
-        return ShotResult.MISSED;
+        return MISSED;
     }
 
-    private int indexOfOffense(Player p) {
-        for (int i = 0; i < Team.SIZE; i++) {
-            if (offense.getPlayer(i) == p) return i;
-        }
-        return -1;
-    }
-
-    public boolean move(char dir) {
-        int dr = 0;
-        int dc = 0;
-        switch (Character.toUpperCase(dir)) {
-            case 'W': dr = -1; break;
-            case 'S': dr =  1; break;
-            case 'A': dc = -1; break;
-            case 'D': dc =  1; break;
-            default: return false;
-        }
+    public int invokeSpecial() {
         Player p = getFocusedPlayer();
-        int nr = p.getRow() + dr;
-        int nc = p.getCol() + dc;
-        if (nr < 0 || nr >= GRID_SIZE || nc < 0 || nc >= GRID_SIZE) return false;
-        if (isOccupied(nr, nc)) return false;
-        p.setPosition(nr, nc);
-        updateDefenders();
-        return true;
+        p.clearLastSpecialResult();
+        p.specialAbility(this);
+        return p.getLastSpecialResult();
+    }
+
+    public void setFocusedIndex(int i) {
+        if (i < 0 || i >= Team.SIZE) return;
+        this.focusedIndex = i;
+    }
+    public int getFocusedIndex() {
+        return focusedIndex;
+    }
+    public Player getFocusedPlayer() {
+        return offense.getPlayer(focusedIndex);
+    }
+    public Player getBallHolder() {
+        return offense.getPlayer(ballHolderIndex);
+    }
+    public int getBallHolderIndex() {
+        return ballHolderIndex;
+    }
+    public int getPossession() {
+        return possession;
+    }
+
+    public Team getOffense() {
+        return offense;
+    }
+    public Team getDefense() {
+        return defense;
+    }
+
+    public int getOffenseScore() {
+        return offenseScore;
+    }
+    public int getDefenseScore() {
+        return defenseScore;
+    }
+    public int getGameCounter() {
+        return gameCounter;
+    }
+
+    public boolean inBounds(int row, int col) {
+        return row >= 0 && row < GRID_SIZE && col >= 0 && col < GRID_SIZE;
+    }
+
+    public boolean isOccupied(int row, int col) {
+        for (int i = 0; i < Team.SIZE; i++) {
+            Player p = offense.getPlayer(i);
+            if (p.getRow() == row && p.getCol() == col) return true;
+        }
+        for (int i = 0; i < Team.SIZE; i++) {
+            Player p = defense.getPlayer(i);
+            if (p.getRow() == row && p.getCol() == col) return true;
+        }
+        return false;
     }
 
     private boolean isOccupiedExcluding(int row, int col, Player exclude) {
-        for (Player p : offense.getPlayers()) {
+        for (int i = 0; i < Team.SIZE; i++) {
+            Player p = offense.getPlayer(i);
             if (p == exclude) continue;
             if (p.getRow() == row && p.getCol() == col) return true;
         }
-        for (Player p : defense.getPlayers()) {
+        for (int i = 0; i < Team.SIZE; i++) {
+            Player p = defense.getPlayer(i);
             if (p == exclude) continue;
             if (p.getRow() == row && p.getCol() == col) return true;
         }
         return false;
+    }
+
+    public Player getMatchedDefender(Player offender) {
+        for (int i = 0; i < Team.SIZE; i++) {
+            if (offense.getPlayer(i) == offender) return defense.getPlayer(i);
+        }
+        return null;
+    }
+
+    public double getNextRandomDouble() {
+        return this.rng.nextDouble();
+    }
+
+    public void resetPlay() {
+        Game init = (stage == null) ? createInitial() : createInitial(stage);
+        for (int i = 0; i < Team.SIZE; i++) {
+            Player o = offense.getPlayer(i);
+            Player srcO = init.offense.getPlayer(i);
+            o.setPosition(srcO.getRow(), srcO.getCol());
+            o.reset();
+
+            Player d = defense.getPlayer(i);
+            Player srcD = init.defense.getPlayer(i);
+            d.setPosition(srcD.getRow(), srcD.getCol());
+            d.reset();
+        }
+        focusedIndex = 0;
+        ballHolderIndex = 0;
+        possession = OFFENSE;
+        gameCounter++;
     }
 
     private void updateDefenders() {
         int i = focusedIndex;
-        {
-            Player o = offense.getPlayer(i);
-            Defender d = (Defender) defense.getPlayer(i);
-            int ro = o.getRow();
-            int co = o.getCol();
-            int highRow;
-            int medRow;
-            if (ro < 4) {
-                highRow = ro + 2;
-                medRow = ro + 1;
-            } else {
-                highRow = ro + 1;
-                medRow = ro + 2;
-            }
+        Player o = offense.getPlayer(i);
+        Defender d = (Defender) defense.getPlayer(i);
+        int ro = o.getRow();
+        int co = o.getCol();
+        int highRow, medRow;
+        if (ro < 4) {
+            highRow = ro + 2;
+            medRow = ro + 1;
+        } else {
+            highRow = ro + 1;
+            medRow = ro + 2;
+        }
 
-            java.util.List<int[]> cells = new java.util.ArrayList<>();
-            java.util.List<Double> weights = new java.util.ArrayList<>();
-            for (int dr = -1; dr <= 1; dr++) {
-                for (int dc = -1; dc <= 1; dc++) {
-                    int nr = ro + dr;
-                    int nc = co + dc;
-                    if (nr < 0 || nr >= GRID_SIZE || nc < 0 || nc >= GRID_SIZE) continue;
-                    if (isOccupiedExcluding(nr, nc, d)) continue;
-                    double w;
-                    if (nr == highRow && nc == co) w = d.getHighWeight();
-                    else if (nr == medRow && nc == co) w = d.getMediumWeight();
-                    else w = d.getLowWeight();
-                    cells.add(new int[] { nr, nc });
-                    weights.add(w);
-                }
+        List<int[]> cells = new ArrayList<int[]>();
+        List<Double> weights = new ArrayList<Double>();
+        for (int dr = -1; dr <= 1; dr++) {
+            for (int dc = -1; dc <= 1; dc++) {
+                int nr = ro + dr;
+                int nc = co + dc;
+                if (!inBounds(nr, nc)) continue;
+                if (isOccupiedExcluding(nr, nc, d)) continue;
+                double w;
+                if (nr == highRow && nc == co) w = d.getHighWeight();
+                else if (nr == medRow && nc == co) w = d.getMediumWeight();
+                else w = d.getLowWeight();
+                cells.add(new int[] { nr, nc });
+                weights.add(w);
             }
-            if (cells.isEmpty()) return;
-            double total = 0;
-            for (double w : weights) total += w;
-            double pick = rng.nextDouble() * total;
-            double acc = 0;
-            for (int k = 0; k < cells.size(); k++) {
-                acc += weights.get(k);
-                if (pick < acc) {
-                    d.setPosition(cells.get(k)[0], cells.get(k)[1]);
-                    break;
-                }
+        }
+        if (cells.isEmpty()) return;
+        double total = 0;
+        for (double w : weights) total += w;
+        double pick = rng.nextDouble() * total;
+        double acc = 0;
+        for (int k = 0; k < cells.size(); k++) {
+            acc += weights.get(k);
+            if (pick < acc) {
+                d.setPosition(cells.get(k)[0], cells.get(k)[1]);
+                break;
             }
         }
     }
 
-    public boolean isOccupied(int row, int col) {
-        for (Player p : offense.getPlayers()) {
-            if (p.getRow() == row && p.getCol() == col) return true;
-        }
-        for (Player p : defense.getPlayers()) {
-            if (p.getRow() == row && p.getCol() == col) return true;
-        }
-        return false;
+    public Stage getStage() {
+        return stage;
+    }
+    public void setStage(Stage stage) {
+        this.stage = stage;
     }
 
     public static Game createInitial() {
@@ -281,20 +309,34 @@ public class Game {
     }
 
     public static Game createInitial(Stage stage) {
-        Player[] offense = new Player[] {
-            new Guard("P1", 0, 1),
-            new Forward("P2", 2, 2),
-            new Center("P3", 1, 4),
-        };
-        Player[] defense = new Player[Team.SIZE];
+        Guard p1 = new Guard();
+        p1.setPlayerNumber(1);
+        p1.setPosition(0, 1);
+
+        Forward p2 = new Forward();
+        p2.setPlayerNumber(2);
+        p2.setPosition(2, 2);
+
+        Center p3 = new Center();
+        p3.setPlayerNumber(3);
+        p3.setPosition(1, 4);
+
+        Player[] offensePlayers = new Player[] { p1, p2, p3 };
+
+        Player[] defensePlayers = new Player[Team.SIZE];
         for (int i = 0; i < Team.SIZE; i++) {
-            Player p = offense[i];
-            defense[i] = new Defender("D" + (i + 1), p.getRow() + 2, p.getCol(),
-                stage.highWeight, stage.mediumWeight, stage.lowWeight);
+            Player o = offensePlayers[i];
+            Defender d = new Defender(stage.highWeight, stage.mediumWeight, stage.lowWeight);
+            d.setPlayerNumber(i + 1);
+            d.setPosition(o.getRow() + 2, o.getCol());
+            defensePlayers[i] = d;
         }
-        return new Game(
-            new Team("players", offense),
-            new Team("defenders", defense)
+
+        Game game = new Game(
+            new Team("players", offensePlayers),
+            new Team("defenders", defensePlayers)
         );
+        game.setStage(stage);
+        return game;
     }
 }
