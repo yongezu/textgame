@@ -7,4 +7,6 @@ LIB="$ROOT/lib"
 
 MAIN="${1:-basketball.Main}"
 
+./build.sh
+
 java -cp "$OUT:$LIB/*" "$MAIN"

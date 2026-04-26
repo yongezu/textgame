@@ -79,3 +79,119 @@ The success probability of the shot depends on the distance.  The shoot distance
 
 When the shot successful, increment the player team score by +2.
 After the shot (in either case), the defender team scores +1.
+
+# Defender movement
+
+The defender players are matched to the offense players one-to-one.  This means that defense.players[i] is matched to offense.players[i].  Their relative position to the shooting player will affect the player's probability of success.
+
+## Initial defender position
+
+All defenders are positions (i+2, j) where (i,j) is the offense player position.
+
+## Tracking the offense player
+
+After the offender moves to its new position at (row_o, col_o), the matched
+defender repositions itself **relative to the offender's new position** (not
+relative to its own current position).
+
+The defender's new cell is chosen from the 3x3 neighborhood centered on the
+offender, i.e. the 9 cells `(row_o + dr, col_o + dc)` for `dr, dc ∈ {-1, 0, +1}`.
+
+Constraints:
+- The candidate cell must be in the grid.
+- The candidate cell must not be occupied by another player. (Use a helper
+  function `isOccupied(row, col)` for this check.)
+- The defender's own current position is allowed (i.e. it may stay put if its
+  current cell happens to also be in the offender's 3x3 neighborhood).
+
+This means the defender effectively "sticks" to its matched offender every
+update — it always ends up within Chebyshev distance 1 of the offender.
+
+### Preference based movement:
+
+Each candidate cell is scored with one of three preference weights — HIGH,
+MEDIUM, or LOW — and the defender picks one at random with probability
+proportional to its weight. The HIGH / MEDIUM / LOW values are stored as
+fields on the `Defender` (so they can be tuned per stage / per archetype
+later).
+
+The preference targets are:
+
+If (row_o < 4), preference(row_o+2, col_o) = HIGH, preference(row_o+1, col_o)
+= MEDIUM, all other reachable cells are LOW.
+
+If (row_o >= 4), preference(row_o+1, col_o) = HIGH, preference(row_o+2, col_o)
+= MEDIUM, all other reachable cells are LOW.
+
+Note: because the candidate cells are within distance 1 of the offender, the
+HIGH and MEDIUM target rows (which sit 1–2 rows *below* the offender) are
+generally outside the candidate set, so in practice most candidates fall under
+LOW. The HIGH/MEDIUM weights are kept on the `Defender` so future tuning or
+expanded movement ranges can use them without further refactoring.
+
+
+# Class Hierarchy
+
+The `Player` class is an abstract class with the following abstract method:
+
+- `public void specialAbility()`.  The special ability is invoked by user command.
+- `public boolean isSpecialAbilityAvailable()`: indicates if the special ability is available.
+
+The `Defender` is a subclass of of `Player` whose special ability does nothing because users do not control the `Defender` players.
+
+- All players can only invoke their special ability at most ONCE during a single game (reset in game reset).
+- In the game status lines, show if the current player has special ability like "Focused: P1 (special available)" vs "Focused: P1 (special unavailable)"
+
+The offense team players are of three subclass players:
+
+## Guard
+
+- Higher shooting percentages.
+- Higher pass success.
+
+The special ability:
+
+- special ability is only available if the `Guard` player has possession of the ball.
+- On the special ability, the player can pass its defender at (row_d, col_d).  With success special ability probability, the Guard can reach (row_d + 1, col_d).  The success probability is a field "Guard.slashSuccess = 0.3".  
+
+## Forward
+
+The special ability:
+
+- special ability is only available if the `Forward` does not have possession of the ball.
+- special ability is only available if the forward row >= 4.
+- The forward special ability allows the forward to get to row=6, col=4 in the next game update.  The success rate is described by `Forward.cutSuccess = 0.3`.
+
+## Center 
+
+The center special ability:
+
+- only available at row=6 at any column.
+- This special ability is applied automatically during each game update.
+- The success of the ability allows the center player to get possession *if* a shot failed, preventing the defenders to get point, and allowing the game to continue.
+
+# Storyline
+
+There are three stages.
+
+Stage 1: play until one team reaches 5 points.  The defenders in stage 1, the defenders are `Defender(row, col, 70, 20, 10)`
+Stage 2: play until one team reaches 7 points.  Defenders are `Defender(row, col, 90, 10, 5)`
+Stage 3: play until one team reaches 9 points.  Defenders are `Defender(row, col, 90, 10, 0.5)`
+
+Create a class `Stage` with constructor:
+
+```
+Stage(maxPoints, highWeight, mediumWeight, lowWeight)
+```
+
+The story line is:
+
+1. start with a screen of story: "Triple-Stage Basketball Showdown.  Ready?"
+2. then it proceeds to a screen describing the stage 1: maxpoints, and defender characterstics.
+3. then it starts Stage 1.
+4. if fails, it will display a "Sorry, re-enter Triple Stage Basketball Showdown?".  If no, quit the game, if yes, go to 1.
+5. if succeeds, proceed to Stage 2.
+...
+
+After succeeding in Stage 3.  Show "Congrats to the champion team of the Triple Stage Basketball Showndown."
+
